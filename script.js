@@ -213,27 +213,6 @@ function renderResult(res){
           <div style="font-weight:700;font-size:18px;margin-top:6px">${fmtINR(res.upper,0)}</div>
         </div>
       </div>
-
-      <div class="small-card">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="flex:1">
-            <div class="meta">Confidence Level</div>
-            <div class="progress" style="margin-top:8px"><div class="bar" style="width:${(res.fuzzyScore*100)}%;background:linear-gradient(90deg,var(--accent1),var(--accent2))"></div></div>
-          </div>
-          <div style="min-width:110px;text-align:right;font-weight:700">${res.confidence || '—'}</div>
-        </div>
-      </div>
-
-      <div style="border-top:1px solid rgba(124,58,237,0.12);padding-top:10px">
-        <h3 style="margin:0 0 8px 0">AI Analysis Scores</h3>
-        <div style="display:grid;gap:8px">
-          <div style="display:flex;justify-content:space-between"><span class="meta">Neural Network Output</span><span class="mono">${res.neuralScore.toFixed(3)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span class="meta">Fuzzy Logic Score</span><span class="mono">${res.fuzzyScore.toFixed(3)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span class="meta">Certainty Factor</span><span class="mono">${(res.certaintyScore*100).toFixed(1)}%</span></div>
-        </div>
-      </div>
-
-      <div class="note"> <strong>Note:</strong> This prediction combines neural network pattern recognition with fuzzy logic reasoning to handle uncertainty. Use as one factor in investment decisions.</div>
     </div>
   `;
   by('resultsArea').innerHTML = html;
