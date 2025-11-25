@@ -1,246 +1,158 @@
-// -- Utility: DOM helpers
-const by = id => document.getElementById(id);
-
-// -- Fuzzy membership functions (ported from React)
-function fuzzyLow(x, min, max){
-  if(x <= min) return 1;
-  if(x >= max) return 0;
-  const ratio = (max - x) / (max - min);
-  return Math.pow(ratio, 0.7);
-}
-function fuzzyMedium(x, min, mid, max){
-  if(x <= min || x >= max) return 0;
-  if(x === mid) return 1;
-  if(x < mid){
-    const ratio = (x - min) / (mid - min);
-    return Math.pow(ratio, 0.8);
-  }
-  const ratio = (max - x) / (max - mid);
-  return Math.pow(ratio, 0.8);
-}
-function fuzzyHigh(x, min, max){
-  if(x <= min) return 0;
-  if(x >= max) return 1;
-  const ratio = (x - min) / (max - min);
-  return Math.pow(ratio, 0.7);
+// ---------- Fuzzy Helpers ----------
+function fuzzyLow(x, min, max) {
+  if (x <= min) return 1;
+  if (x >= max) return 0;
+  return Math.pow((max - x) / (max - min), 0.7);
 }
 
-// -- Normalizers
-function normalizeGrowth(growth){
-  const g = parseFloat(growth) || 0;
-  return Math.max(0, Math.min(1, (g + 50) / 100));
-}
-function normalizeVolatility(vol){
-  const v = parseFloat(vol) || 0;
-  return Math.max(0, Math.min(1, v / 100));
-}
-function normalizeIndicator(ind){
-  const i = parseFloat(ind) || 0;
-  return Math.max(0, Math.min(1, (i + 10) / 20));
-}
-function normalizeTrend(trend){
-  const t = parseFloat(trend) || 0;
-  return Math.max(0, Math.min(1, (t + 5) / 10));
+function fuzzyMedium(x, min, mid, max) {
+  if (x <= min || x >= max) return 0;
+  if (x === mid) return 1;
+  return x < mid
+    ? Math.pow((x - min) / (mid - min), 0.8)
+    : Math.pow((max - x) / (max - mid), 0.8);
 }
 
-// -- Neural process (ported)
-function neuralProcess(inputs){
-  const weights1 = {
-    growth: [0.40, -0.15, 0.25, 0.30],
-    volatility: [-0.25, -0.30, 0.10, -0.20],
-    economic: [0.30, 0.35, -0.10, 0.25],
-    industry: [0.25, 0.20, 0.30, 0.15]
+function fuzzyHigh(x, min, max) {
+  if (x <= min) return 0;
+  if (x >= max) return 1;
+  return Math.pow((x - min) / (max - min), 0.7);
+}
+
+// ---------- Normalization ----------
+const normalizeGrowth = (g) =>
+  Math.max(0, Math.min(1, (parseFloat(g) + 50) / 100));
+const normalizeVol = (v) => Math.max(0, Math.min(1, v / 100));
+const normalizeEco = (e) => Math.max(0, Math.min(1, (parseFloat(e) + 10) / 20));
+const normalizeTrend = (t) =>
+  Math.max(0, Math.min(1, (parseFloat(t) + 5) / 10));
+
+// ---------- Neural Network ----------
+function neuralProcess(x) {
+  const w1 = {
+    growth: [0.4, -0.15, 0.25, 0.3],
+    volatility: [-0.25, -0.3, 0.1, -0.2],
+    economic: [0.3, 0.35, -0.1, 0.25],
+    industry: [0.25, 0.2, 0.3, 0.15],
   };
-  const weights2 = [0.35, 0.30, 0.20, 0.15];
-  const biases1 = [0.1, -0.05, 0.15, 0.08];
-  const bias2 = 0.05;
+  const w2 = [0.35, 0.3, 0.2, 0.15];
+  const b1 = [0.1, -0.05, 0.15, 0.08];
+  const b2 = 0.05;
+  let h = [],
+    out = b2;
+  for (let i = 0; i < 4; i++) {
+    let s =
+      b1[i] +
+      x.growth * w1.growth[i] +
+      x.volatility * w1.volatility[i] +
+      x.economic * w1.economic[i] +
+      x.industry * w1.industry[i];
+    h.push(Math.max(0, s));
+    out += h[i] * w2[i];
+  }
+  let z = Math.tanh(out * 1.2) + x.growth * 0.15;
+  return Math.tanh(z);
+}
 
-  const hidden1 = [];
-  for(let i=0;i<4;i++){
-    let sum = biases1[i];
-    sum += inputs.growth * weights1.growth[i];
-    sum += inputs.volatility * weights1.volatility[i];
-    sum += inputs.economic * weights1.economic[i];
-    sum += inputs.industry * weights1.industry[i];
-    hidden1.push(Math.max(0,sum));
+// ---------- Fuzzy Inference ----------
+function fuzzyInference(nOut, vol, growth, eco) {
+  let gL = fuzzyLow(nOut, -0.6, 0.2),
+    gM = fuzzyMedium(nOut, -0.2, 0.5, 0.85),
+    gH = fuzzyHigh(nOut, 0.3, 1);
+  let vL = fuzzyLow(vol, 0, 0.35),
+    vM = fuzzyMedium(vol, 0.25, 0.5, 0.75),
+    vH = fuzzyHigh(vol, 0.65, 1);
+  let eP = fuzzyHigh(eco, 0.4, 1),
+    eN = fuzzyMedium(eco, 0.2, 0.5, 0.8),
+    eNeg = fuzzyLow(eco, 0, 0.6);
+
+  let growthState = gH >= gM && gH >= gL ? "high" : gM >= gL ? "medium" : "low";
+  let volState = vH >= vM && vH >= vL ? "high" : vM >= vL ? "medium" : "low";
+  let ecoState =
+    eP >= eN && eP >= eNeg ? "positive" : eN >= eNeg ? "neutral" : "negative";
+
+  let output = 0.5,
+    confidence = "Moderate";
+  if (growthState === "high") {
+    if (volState === "low")
+      output =
+        ecoState === "positive" ? 0.95 : ecoState === "neutral" ? 0.9 : 0.82;
+    else if (volState === "medium")
+      output =
+        ecoState === "positive" ? 0.85 : ecoState === "neutral" ? 0.78 : 0.68;
+    else
+      output =
+        ecoState === "positive" ? 0.7 : ecoState === "neutral" ? 0.6 : 0.48;
+  } else if (growthState === "medium") {
+    if (volState === "low")
+      output =
+        ecoState === "positive" ? 0.8 : ecoState === "neutral" ? 0.72 : 0.62;
+    else if (volState === "medium")
+      output =
+        ecoState === "positive" ? 0.68 : ecoState === "neutral" ? 0.55 : 0.42;
+    else
+      output =
+        ecoState === "positive" ? 0.5 : ecoState === "neutral" ? 0.38 : 0.28;
+  } else {
+    if (volState === "low")
+      output =
+        ecoState === "positive" ? 0.45 : ecoState === "neutral" ? 0.35 : 0.25;
+    else if (volState === "medium")
+      output =
+        ecoState === "positive" ? 0.32 : ecoState === "neutral" ? 0.22 : 0.15;
+    else
+      output =
+        ecoState === "positive" ? 0.2 : ecoState === "neutral" ? 0.12 : 0.05;
   }
 
-  let output = bias2;
-  for(let i=0;i<4;i++) output += hidden1[i] * weights2[i];
-
-  const normalized = Math.tanh(output * 1.2);
-  const momentum = inputs.growth * 0.15;
-  return Math.tanh(normalized + momentum);
+  const act = Math.min(
+    Math.max(gL, gM, gH),
+    Math.max(vL, vM, vH),
+    Math.max(eP, eN, eNeg)
+  );
+  const adj = 0.5 + (output - 0.5) * Math.pow(act, 0.85);
+  const certainty = Math.min(1, act * 1.2);
+  return { crisp: adj * (0.85 + certainty * 0.15), certainty };
 }
 
-// -- Fuzzy inference (ported)
-function fuzzyInference(neuralOutput, volatility, growth, economic){
-  const growthLow = fuzzyLow(neuralOutput, -0.6, 0.2);
-  const growthMed = fuzzyMedium(neuralOutput, -0.2, 0.5, 0.85);
-  const growthHigh = fuzzyHigh(neuralOutput, 0.3, 1.0);
+// ---------- Main Calculation ----------
+function calculate() {
+  const curr = parseFloat(document.getElementById("currentValue").value);
+  const g = parseFloat(document.getElementById("growth").value);
+  const v = parseFloat(document.getElementById("volatility").value);
+  const e = parseFloat(document.getElementById("economic").value);
+  const i = parseFloat(document.getElementById("industry").value);
+  const T = parseInt(document.getElementById("horizon").value);
 
-  const volLow = fuzzyLow(volatility, 0, 0.35);
-  const volMed = fuzzyMedium(volatility, 0.25, 0.5, 0.75);
-  const volHigh = fuzzyHigh(volatility, 0.65, 1.0);
+  const input = {
+    growth: normalizeGrowth(g),
+    volatility: normalizeVol(v),
+    economic: normalizeEco(e),
+    industry: normalizeTrend(i),
+  };
 
-  const econPositive = fuzzyHigh(economic, 0.4, 1.0);
-  const econNeutral = fuzzyMedium(economic, 0.2, 0.5, 0.8);
-  const econNegative = fuzzyLow(economic, 0, 0.6);
+  const neural = neuralProcess(input);
+  const fuz = fuzzyInference(
+    neural,
+    input.volatility,
+    input.growth,
+    input.economic
+  );
 
-  const rules = [
-    { condition: Math.min(growthHigh, volLow, econPositive), output: 0.95, confidence: 'Exceptional' },
-    { condition: Math.min(growthHigh, volLow, econNeutral), output: 0.90, confidence: 'Very High' },
-    { condition: Math.min(growthHigh, volLow, econNegative), output: 0.82, confidence: 'High' },
-    { condition: Math.min(growthHigh, volMed, econPositive), output: 0.85, confidence: 'High' },
-    { condition: Math.min(growthHigh, volMed, econNeutral), output: 0.78, confidence: 'High' },
-    { condition: Math.min(growthHigh, volMed, econNegative), output: 0.68, confidence: 'Moderate-High' },
-    { condition: Math.min(growthHigh, volHigh, econPositive), output: 0.70, confidence: 'Moderate-High' },
-    { condition: Math.min(growthHigh, volHigh, econNeutral), output: 0.60, confidence: 'Moderate' },
-    { condition: Math.min(growthHigh, volHigh, econNegative), output: 0.48, confidence: 'Moderate' },
+  const base = 1 + (fuz.crisp - 0.5) * 2 * 0.35;
+  const boost = (input.industry - 0.5) * 0.15;
+  const final = curr * Math.pow(base * (1 + boost), T);
 
-    { condition: Math.min(growthMed, volLow, econPositive), output: 0.80, confidence: 'High' },
-    { condition: Math.min(growthMed, volLow, econNeutral), output: 0.72, confidence: 'Moderate-High' },
-    { condition: Math.min(growthMed, volLow, econNegative), output: 0.62, confidence: 'Moderate-High' },
-    { condition: Math.min(growthMed, volMed, econPositive), output: 0.68, confidence: 'Moderate-High' },
-    { condition: Math.min(growthMed, volMed, econNeutral), output: 0.55, confidence: 'Moderate' },
-    { condition: Math.min(growthMed, volMed, econNegative), output: 0.42, confidence: 'Moderate' },
-    { condition: Math.min(growthMed, volHigh, econPositive), output: 0.50, confidence: 'Moderate' },
-    { condition: Math.min(growthMed, volHigh, econNeutral), output: 0.38, confidence: 'Moderate-Low' },
-    { condition: Math.min(growthMed, volHigh, econNegative), output: 0.28, confidence: 'Low' },
+  const volAdj = input.volatility * 0.18 * (1.2 - fuz.certainty * 0.4);
+  const low = final * (1 - volAdj);
+  const high = final * (1 + volAdj);
 
-    { condition: Math.min(growthLow, volLow, econPositive), output: 0.45, confidence: 'Moderate' },
-    { condition: Math.min(growthLow, volLow, econNeutral), output: 0.35, confidence: 'Moderate-Low' },
-    { condition: Math.min(growthLow, volLow, econNegative), output: 0.25, confidence: 'Low' },
-    { condition: Math.min(growthLow, volMed, econPositive), output: 0.32, confidence: 'Moderate-Low' },
-    { condition: Math.min(growthLow, volMed, econNeutral), output: 0.22, confidence: 'Low' },
-    { condition: Math.min(growthLow, volMed, econNegative), output: 0.15, confidence: 'Very Low' },
-    { condition: Math.min(growthLow, volHigh, econPositive), output: 0.20, confidence: 'Low' },
-    { condition: Math.min(growthLow, volHigh, econNeutral), output: 0.12, confidence: 'Very Low' },
-    { condition: Math.min(growthLow, volHigh, econNegative), output: 0.05, confidence: 'Critical' }
-  ];
-
-  let numerator = 0, denominator = 0, maxConfidence = { level: '', value: 0 }, totalActivation = 0;
-  rules.forEach(rule =>{
-    const activation = Math.pow(rule.condition, 0.85);
-    numerator += activation * rule.output;
-    denominator += activation;
-    totalActivation += rule.condition;
-    if(rule.condition > maxConfidence.value){ maxConfidence = { level: rule.confidence, value: rule.condition } }
-  });
-
-  const crispOutput = denominator > 0 ? numerator / denominator : 0.5;
-  const certaintyFactor = Math.min(1, totalActivation / 3);
-  const adjustedOutput = crispOutput * (0.85 + certaintyFactor * 0.15);
-
-  return { crispOutput: adjustedOutput, confidence: maxConfidence.level, certaintyScore: certaintyFactor };
+  document.getElementById("output").innerHTML = `
+  <div class='resultBox'>
+    <div class='value'>Predicted Value: ₹ ${final.toFixed(2)}</div>
+    <div class='small'>Range: ₹${low.toFixed(2)} — ₹${high.toFixed(2)}</div><br>
+    <div>Estimated Growth Rate: ${((100 * (final - curr)) / curr).toFixed(
+      2
+    )}%</div>
+  </div>`;
 }
-
-// -- Main calculation
-function calculatePrediction(){
-  setUIProcessing(true);
-
-  setTimeout(()=>{
-    const currentVal = parseFloat(by('currentValue').value) || 0;
-    const timeHorizon = parseInt(by('timeHorizon').value,10) || 1;
-
-    const normalizedInputs = {
-      growth: normalizeGrowth(by('historicalGrowth').value),
-      volatility: normalizeVolatility(by('marketVolatility').value),
-      economic: normalizeIndicator(by('economicIndicator').value),
-      industry: normalizeTrend(by('industryTrend').value)
-    };
-
-    const neuralOutput = neuralProcess(normalizedInputs);
-
-    const { crispOutput, confidence, certaintyScore } = fuzzyInference(
-      neuralOutput,
-      normalizedInputs.volatility,
-      normalizedInputs.growth,
-      normalizedInputs.economic
-    );
-
-    const baseGrowthFactor = 1 + (crispOutput - 0.5) * 2 * 0.35; // -35% to +35%
-    const industryBoost = (normalizedInputs.industry - 0.5) * 0.15;
-    const enhancedGrowthFactor = baseGrowthFactor * (1 + industryBoost);
-
-    const annualGrowth = Math.pow(enhancedGrowthFactor, timeHorizon);
-    const predictedValue = currentVal * annualGrowth;
-
-    const baseVolatility = normalizedInputs.volatility * 0.18;
-    const adjustedVolatility = baseVolatility * (1.2 - certaintyScore * 0.4);
-    const lowerBound = predictedValue * (1 - adjustedVolatility);
-    const upperBound = predictedValue * (1 + adjustedVolatility);
-
-    const result = {
-      predicted: predictedValue,
-      lower: lowerBound,
-      upper: upperBound,
-      confidence: confidence,
-      growthRate: currentVal ? ((predictedValue - currentVal) / currentVal) * 100 : 0,
-      neuralScore: neuralOutput,
-      fuzzyScore: crispOutput,
-      certaintyScore: certaintyScore
-    };
-
-    renderResult(result);
-    setUIProcessing(false);
-  }, 900);
-}
-
-// -- UI helpers
-function fmtINR(x, digits=2){
-  try{
-    return new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', minimumFractionDigits:digits, maximumFractionDigits:digits }).format(x);
-  }catch(e){return '₹' + Number(x).toFixed(digits)}
-}
-
-function renderResult(res){
-  const html = `
-    <div style="display:grid;gap:12px">
-      <div class="result-hero">
-        <p style="font-size:12px;margin:0;color:rgba(235,255,235,0.9)">Predicted Future Value</p>
-        <p style="font-size:26px;font-weight:700;margin:6px 0">${fmtINR(res.predicted,2)}</p>
-        <p style="margin:0;color:rgba(235,255,235,0.9)">${res.growthRate>=0?'+':''}${res.growthRate.toFixed(2)}% total growth</p>
-      </div>
-
-      <div class="two">
-        <div class="small-card">
-          <div class="meta">Lower Bound</div>
-          <div style="font-weight:700;font-size:18px;margin-top:6px">${fmtINR(res.lower,0)}</div>
-        </div>
-        <div class="small-card">
-          <div class="meta">Upper Bound</div>
-          <div style="font-weight:700;font-size:18px;margin-top:6px">${fmtINR(res.upper,0)}</div>
-        </div>
-      </div>
-    </div>
-  `;
-  by('resultsArea').innerHTML = html;
-}
-
-function setUIProcessing(isProcessing){
-  const btn = by('evaluateBtn');
-  btn.disabled = isProcessing || !isFormValid();
-  btn.textContent = isProcessing ? 'Processing...' : 'Evaluate Asset';
-}
-
-function isFormValid(){
-  const vals = [by('currentValue').value, by('historicalGrowth').value, by('marketVolatility').value, by('economicIndicator').value, by('industryTrend').value, by('timeHorizon').value];
-  return vals.every(v => String(v).trim() !== '');
-}
-
-// -- Wiring
-const inputs = ['currentValue','historicalGrowth','marketVolatility','economicIndicator','industryTrend','timeHorizon'];
-inputs.forEach(id=>{
-  const el = by(id);
-  el.addEventListener('input', ()=>{ by('evaluateBtn').disabled = !isFormValid(); });
-  el.addEventListener('change', ()=>{ by('evaluateBtn').disabled = !isFormValid(); });
-});
-
-by('evaluateBtn').addEventListener('click', ()=>{
-  if(!isFormValid()) return;
-  calculatePrediction();
-});
-
-// initialize
-by('evaluateBtn').disabled = true;

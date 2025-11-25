@@ -1,89 +1,47 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Neuro-Fuzzy Asset Evaluator (Vanilla JS)</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="style.css">
-  
+<meta charset="UTF-8">
+<title>Neuro-Fuzzy Asset Evaluator</title>
+<link rel="stylesheet" href="./style.css">
 </head>
+
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="title">
-        <h1>Neuro-Fuzzy Asset Evaluator</h1>
-      </div>
-    </div>
+<div class="container">
+  <h1>Neuro-Fuzzy Asset Evaluator</h1>
 
-    <div class="grid">
-      <!-- Input panel -->
-      <div class="card">
-        <h2 style="margin-top:0">Asset Parameters</h2>
+  <div class="box">
+    <h2>Asset Inputs</h2>
 
-        <div style="display:grid;gap:14px;margin-top:12px">
+    <label>Current Asset Value (₹)</label>
+    <input id="currentValue" type="number" placeholder="8300000">
 
-          <div>
-            <label>Current Asset Value (₹)</label>
-            <div class="hint">Present market value used as baseline for predictions. For stocks, use market cap; for real estate, market price.</div>
-            <input id="currentValue" type="number" placeholder="e.g., 8300000" />
-          </div>
+    <label>Historical Growth Rate (% per year)</label>
+    <input id="growth" type="number" placeholder="e.g., 8.5">
 
-          <div>
-            <label>Historical Growth Rate (% per year)</label>
-            <div class="hint">Average annual % change over past 3–5 years.</div>
-            <input id="historicalGrowth" type="number" placeholder="e.g., 8.5" />
-          </div>
+    <label>Market Volatility Index (0-100)</label>
+    <input id="volatility" type="number" placeholder="e.g., 25">
 
-          <div>
-            <label>Market Volatility Index (0–100)</label>
-            <div class="hint">0–20 stable; 20–50 moderate; 50–100 high volatility.</div>
-            <input id="marketVolatility" type="number" placeholder="e.g., 25" />
-          </div>
+    <label>Economic Indicator Score (-10 to +10)</label>
+    <input id="economic" type="number" placeholder="e.g., 5">
 
-          <div>
-            <label>Economic Indicator Score (-10 to +10)</label>
-            <div class="hint">Macro health: GDP, inflation, employment, consumer confidence.</div>
-            <input id="economicIndicator" type="number" placeholder="e.g., 5" />
-          </div>
+    <label>Industry Trend Score (-5 to +5)</label>
+    <input id="industry" type="number" placeholder="e.g., 3">
 
-          <div>
-            <label>Industry Trend Score (-5 to +5)</label>
-            <div class="hint">Sector outlook: disruption, demand, regulation.</div>
-            <input id="industryTrend" type="number" placeholder="e.g., 3" />
-          </div>
+    <label>Time Horizon (Years)</label>
+    <select id="horizon">
+      <option value="1">1 Year</option>
+      <option value="3">3 Years</option>
+      <option value="5">5 Years</option>
+      <option value="10">10 Years</option>
+    </select>
 
-          <div>
-            <label>Time Horizon (years)</label>
-            <div class="hint">How many years ahead to project (compound growth).</div>
-            <select id="timeHorizon">
-              <option value="1">1 Year</option>
-              <option value="3">3 Years</option>
-              <option value="5">5 Years</option>
-              <option value="10">10 Years</option>
-            </select>
-          </div>
-
-          <button id="evaluateBtn" class="primary" disabled>Evaluate Asset</button>
-        </div>
-      </div>
-
-      <!-- Results panel -->
-      <div class="card">
-        <h2 style="margin-top:0">Prediction Results</h2>
-
-        <div id="resultsArea">
-          <div class="placeholder">
-            <div style="text-align:center">
-              <div style="margin-top:12px;color:rgba(190,180,255,0.6)">Enter asset parameters and click "Evaluate Asset"</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
+    <button onclick="calculate()">Predict Asset Value</button>
   </div>
-<script src="script.js"></script>
+
+  <div id="output"></div>
+</div>
+
+<script src="./script.js"></script>
 </body>
 </html>
